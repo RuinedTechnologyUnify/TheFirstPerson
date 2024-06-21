@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:item/template_skull",
+  "overrides": [
+	{ "predicate": { "custom_model_data": 1 }, "model": "player/right_arm" },
+	{ "predicate": { "custom_model_data": 2 }, "model": "player/left_arm" },
+	{ "predicate": { "custom_model_data": 3 }, "model": "item/arms/right_hand" },
+	{ "predicate": { "custom_model_data": 4 }, "model": "item/arms/left_hand" }
+  ]
+}
