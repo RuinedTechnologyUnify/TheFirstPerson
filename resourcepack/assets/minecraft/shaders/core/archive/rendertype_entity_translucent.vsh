@@ -96,7 +96,7 @@ void main() {
         part = 0.;
         texCoord0 = UV0;
         texCoord1 = vec2(0.0);
-//        vertexDistance = fog_distance(ModelViewMat, IViewRotMat * Position, FogShape);
+        vertexDistance = fog_distance(Position, FogShape);
         gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
     } else {
         // wpos는 원래 uniform mat3 IViewRotMat을 곱해야 하나, 1.20.4 이후 deprecated 되었다.
@@ -122,99 +122,78 @@ void main() {
             vec4 samp2 = texture(Sampler0, vec2(55.0 / 64.0, 20.0 / 64.0));
             bool slim = samp1.a == 0. || (((samp1.r + samp1.g + samp1.b) == 0.0) && ((samp2.r + samp2.g + samp2.b) == 0.0) && samp1.a == 1.0 && samp2.a == 1.);
             // 아마, 바깥이면 1 안쪽이면 0?
-            int outerLayer = (gl_VertexID / 24) % 2;
-            // 한 face에서 어느 꼭짓점인지?
+            int outerLayer = (gl_VertexID / 24 ) % 2;
+            // 한 face에서 어느 꼭짓점인지 결정
             int vertexId = gl_VertexID % 4;
-            // 한 part에서 어느 face인지?
-            // 본래 4 - 부분이 없으나, 없는 경우 오류가 발생했다.
-            int faceId = 4 - (gl_VertexID / 24) % 4;
-            ivec2 faceIdTmp = ivec2(round(UV0 * SKINRES));
-            if ((faceId != 1 && vertexId >= 2) || (faceId == 1 && vertexId <= 1)) {
-                faceIdTmp.y -= FACERES;
-            }
-            if (vertexId == 0 || vertexId == 3) {
-                faceIdTmp.x -= FACERES;
-            }
-            faceIdTmp /= FACERES;
-            faceId = (faceIdTmp.x % 4) + 4 * faceIdTmp.y;
-            // 위 로직에 대한 이해가 부족하여 실험 결과들을 아래 나열한다.
-            /*
-            알기 어렵다... 예측할 수가 없다.
-            [1] -> 1 down -> no noise, but not works.
-            [2] -> 1 same to [1] -> 1 and up -> down
-            [3], [4] -> 100 outOfIndex 없는 것으로 보아 아예 참조되지 않는 중
-            [5] -> 1 right -> down
-            [6] -> 1 front -> down
-            [7] -> 1 left -> down
-            [8] -> 1 back -> down
-            위 테스트에서 확인한 결과, outer는 inner에 귀속된다.
+            // 한 part에서 어느 face인지 결정 : 0부터 4개씩 끊어 up down right front left back 순서
+            int faceId = (gl_VertexID / 4) % 6;
 
-            faceremap[8-faceId] 할 경우
-            back -> up
-            up -> back
-            front -> down
-            left -> down
-            right -> right
-
-            맨 아래의 faceId 가 0일 때 오류 발생하는 것을 확인
-            결론적으로 맨 아래는 항상 faceremap 전의 id가 1번인데, 이것이 어느 경우에도 이상하게 렌더링되었다.
-            의문점: faceremap 후 faceId가 특정 값일 때 1로 바꾸는 로직을 만들었을 때 윗면도 바뀐다면 아래면이 정상적이나 아래면만 바뀐다면 깨진다.
-            아무래도 faceId 연산 자체가 문제인 듯 하다. 아래면의 verice 몇몇이 윗면의 것으로 인식되는 중인 것 같다.
-            */
-
-
-            // 진짜로 face ID이다. 0~5 순서대로 up, down, right, front, left, back 이다.
-            // 크기가 8이니 각 꼭짓점에 따라 정하는 거 같은데..
-            faceId = faceremap[faceId];
+            // faceId에 따라 uv 위치 조정
             int subuvIndex = faceId;
 
+            // origin을 모델 위치로 변경
             wpos.y += SPACING * partId;
-            // 본래 inverse(IViewRotMAt) 이 필요하나, 위와 같은 이유로 삭제하였다
-            gl_Position = ProjMat * ModelViewMat * vec4(wpos, 1.0);
-            gl_Position = ProjMat * ModelViewMat * vec4(vec3(Position.x, Position.y + 1024, Position.z), 1.);
 
+            // ProjMat 조작 작업
+            // TODO nausea 포션효과 무시 작업
+            // TODO 완벽한 FOV 찾기(80.1은 실험적 값)
+            mat4 newProjMat = ProjMat;
+
+            // FOV에 따른 ProjMat 변형을 조작 -> FOV 무시하고 위치 고정
+            float tanFovHalf = ProjMat[1][1] / ProjMat[0][0];
+            float newTanFovHalf = tan(80.1 / 2.0);
+
+            newProjMat[0][0] /= newTanFovHalf * ProjMat[1][1];
+            newProjMat[1][1] = newTanFovHalf;
+//            newProjMat[3][0] = 0; 위아래 bobbing만 적용
+//            newProjMat[3][1] = 0; 좌우 bobbing만 적용
+
+            // ModelViewMat 삭제하여 billboard:"center" 효과 적용
+            gl_Position = vec4((newProjMat * vec4(wpos.x, wpos.y, wpos.z, 2.0)).xyz, 4);
+
+
+            // uv 매핑
             UVout = origins[2 * (partId - 1) + outerLayer];
             UVout2 = origins[2 * (partId - 1)];
 
-            if (slim && (partId == 1 || partId == 2)) {
-                subuvIndex += 6;
-            }
-            else if (partId == 3) {
-                subuvIndex += 12;
-            }
-
-            vec4 subuv = subuvs[subuvIndex];
-
-            vec2 offset = vec2(0.0);
-            if (faceId == 1) {
+            // 각 vertex별 uv 할당
+            vec2 offset = vec2(0.);
+            if (faceId == 0) {
+                offset += vec2(4,4);
                 if (vertexId == 0) {
-                    offset += subuv.zw;
+                    offset += vec2(4,0);
+                } else if (vertexId == 1) {
+                    offset += vec2(0);
+                } else if (vertexId == 2) {
+                    offset += vec2(0,-4);
+                } else if (vertexId == 3) {
+                    offset += vec2(4,-4);
                 }
-                else if (vertexId == 1) {
-                    offset += subuv.xw;
-                }
-                else if (vertexId == 2) {
-                    offset += subuv.xy;
-                }
-                else {
-                    offset += subuv.zy;
-                }
-            }
-            else {
+            } else if (faceId == 1) {
+                offset += vec2(8,4);
                 if (vertexId == 0) {
-                    offset += subuv.zy;
+                    offset += vec2(4,0);
+                } else if (vertexId == 1) {
+                    offset += vec2(0);
+                } else if (vertexId == 2) {
+                    offset += vec2(0,-4);
+                } else if (vertexId == 3) {
+                    offset += vec2(4,-4);
                 }
-                else if (vertexId == 1) {
-                    offset += subuv.xy;
-                }
-                else if (vertexId == 2) {
-                    offset += subuv.xw;
-                }
-                else {
-                    offset += subuv.zw;
+            } else {
+                offset += vec2((faceId-2)*4, 4);
+                if (vertexId == 0) {
+                    offset += vec2(4,0);
+                } else if (vertexId == 1) {
+                    offset += vec2(0);
+                } else if (vertexId == 2) {
+                    offset += vec2(0, 12);
+                } else if (vertexId == 3) {
+                    offset += vec2(4, 12);
                 }
             }
 
+            vertexDistance = fog_distance(Position, FogShape);
             UVout += offset;
             UVout2 += offset;
             UVout /= float(SKINRES);
