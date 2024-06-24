@@ -4,7 +4,6 @@
     "layer0": "minecraft:item/turtle_scute"
   },
   "overrides": [
-    { "predicate": { "custom_model_data": 1 }, "model": "test/tome" },
-	{ "predicate": { "custom_model_data": 2 }, "model": "test/test_sword" }
+	  { "predicate": { "custom_model_data": 1 }, "model": "test/test_sword" }
   ]
 }
