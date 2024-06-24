@@ -41,7 +41,7 @@ void main() {
         gl_Position = ProjMat * ModelViewMat * vec4(Position, 1.0);
         vertexDistance = fog_distance(Position, FogShape);
     } else {
-        // 가상 팔과 같은 효과 적용
+        // 가상 아이템. item_display 용 효과 적용
         // @see rendertype_entity_translucent.fsh
         wpos.y += SPACING * partId;
 
@@ -51,8 +51,9 @@ void main() {
         float newTanFovHalf = tan(80.1 / 2.0);
         newProjMat[0][0] /= newTanFovHalf * ProjMat[1][1];
         newProjMat[1][1] = newTanFovHalf;
+        newProjMat[2][2] /= 10;
 
-        gl_Position = vec4((newProjMat  * vec4(wpos.x, -wpos.y, -wpos.z, 1.0)).xyz, 0.5);
+        gl_Position = (newProjMat  * vec4(-wpos.x, -wpos.y, wpos.z, 2));
         vertexDistance = fog_distance(wpos, FogShape);
     }
 }

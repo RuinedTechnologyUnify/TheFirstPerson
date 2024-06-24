@@ -1,0 +1,7 @@
+name: Mounter
+version: 1.0.0
+main: kr.kro.lanthanide.Mounter
+description: Mounts entity to another one.
+author: lanthanide
+website: https://lanthanide.kro.kr
+api-version: '1.20.5'
