@@ -42,29 +42,8 @@ out float part;
 #define SKINRES 64
 #define FACERES 8
 
-// uv 크기 데이터로 보인다. 미사용.
-const vec4[] subuvs = vec4[](
-vec4(4.0, 0.0, 8.0, 4.0), // 4x4x12
-vec4(8.0, 0.0, 12.0, 4.0),
-vec4(0.0, 4.0, 4.0, 16.0),
-vec4(4.0, 4.0, 8.0, 16.0),
-vec4(8.0, 4.0, 12.0, 16.0),
-vec4(12.0, 4.0, 16.0, 16.0),
-vec4(4.0, 0.0, 7.0, 4.0), // 4x3x12
-vec4(7.0, 0.0, 10.0, 4.0),
-vec4(0.0, 4.0, 4.0, 16.0),
-vec4(4.0, 4.0, 7.0, 16.0),
-vec4(7.0, 4.0, 11.0, 16.0),
-vec4(11.0, 4.0, 14.0, 16.0),
-vec4(4.0, 0.0, 12.0, 4.0), // 4x8x12
-vec4(12.0, 0.0, 20.0, 4.0),
-vec4(0.0, 4.0, 4.0, 16.0),
-vec4(4.0, 4.0, 12.0, 16.0),
-vec4(12.0, 4.0, 16.0, 16.0),
-vec4(16.0, 4.0, 24.0, 16.0)
-);
 
-// uv 위치 데이터로 보인다. 미사용.
+// uv 위치 데이터
 const vec2[] origins = vec2[](
 vec2(40.0, 16.0), // right arm
 vec2(40.0, 32.0),
@@ -77,10 +56,6 @@ vec2(0.0, 32.0),
 vec2(16.0, 48.0), // left leg
 vec2(0.0, 48.0)
 );
-
-// faceId에서 사용하는데, 명확하게 모르겠다. 미사용.
-// 작성 시점에 right_arm의 아래 부분에 이상한 텍스쳐가 겹치는 문제가 있는데, 이 변수에 영향을 받음이 확인되었다.
-const int[] faceremap = int[](0, 0, 1, 1, 2, 3, 4, 5);
 
 void main() {
     // 바닐라 로직. texCoord0과 gl_Position은 추후 설정
@@ -127,28 +102,26 @@ void main() {
             // 한 part에서 어느 face인지 결정 : 0부터 4개씩 끊어 up down right front left back 순서
             int faceId = (gl_VertexID / 4) % 6;
 
-            // faceId에 따라 uv 위치 조정
-            int subuvIndex = faceId;
-
             // origin을 모델 위치로 변경
             wpos.y += SPACING * partId;
 
             // ProjMat 조작 작업
             // TODO nausea 포션효과 무시 작업
             // TODO 완벽한 FOV 찾기(80.1은 실험적 값)
-            mat4 newProjMat = ProjMat;
+            mat4 tweakedProjMat = ProjMat;
 
             // FOV에 따른 ProjMat 변형을 조작 -> FOV 무시하고 위치 고정
-            float tanFovHalf = ProjMat[1][1] / ProjMat[0][0];
-            float newTanFovHalf = tan(80.1 / 2.0);
+            float tanFovHalf = tan(80.1 / 2.0);
 
-            newProjMat[0][0] /= newTanFovHalf * ProjMat[1][1];
-            newProjMat[1][1] = newTanFovHalf;
+            tweakedProjMat[0][0] /= tanFovHalf * ProjMat[1][1];
+            tweakedProjMat[1][1] = tanFovHalf;
+            tweakedProjMat[2][2] /= 10;
             //            newProjMat[3][0] = 0; 좌우 View Bobbing 제거
             //            newProjMat[3][1] = 0; 상하 Vie Bobbing 제거
 
-            // ModelViewMat 삭제하여 billboard:"center" 효과 적용, wpos의 y와 z 반전하여 transform 호환성 증대
-            gl_Position = vec4((newProjMat  * vec4(wpos.x, -wpos.y, -wpos.z, 1.0)).xyz, 0.5);
+            // ModelViewMat 삭제하여 billboard:"center" 효과 적용
+            gl_Position = tweakedProjMat  * vec4(-wpos.x, -wpos.y, wpos.z, 2);
+
 
             // uv 매핑
             UVout = origins[2 * (partId - 1) + outerLayer];
